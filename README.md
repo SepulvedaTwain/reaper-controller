@@ -54,8 +54,15 @@ something changes) and runs command batches the page sends, acknowledging each o
    (e.g. `http://192.168.1.23:2307/reaper-controller/index.html`; `install.bat` prints yours).
    On iPad: Safari → Share → **Add to Home Screen** for a full-screen app.
 
-Windows Firewall has to allow REAPER on your Wi‑Fi's network profile (REAPER asks the first time the web
-interface is used from another device).
+**Windows Firewall has to allow REAPER** on your Wi‑Fi's network profile. If the page works on the PC but the tablet
+hangs on *loading* and times out, Windows is blocking REAPER (common when the Wi‑Fi is set to *Public* and the
+firewall prompt was dismissed). Fix, in PowerShell **as administrator** — allows only devices on your own network:
+
+```nSet-NetFirewallRule -DisplayName "REAPER" -Action Allow -RemoteAddress LocalSubnet
+```
+
+or Windows Security → Firewall & network protection → Allow an app through firewall → REAPER → tick your
+network type (Public/Private).
 
 ## Using it
 
@@ -113,7 +120,7 @@ Adding, deleting, renaming tracks and changing sends are REAPER undo points (**C
 
 | Symptom | Fix |
 |---|---|
-| Page doesn't load on the tablet | Open the exact address including `/reaper-controller/index.html`. Same Wi‑Fi? Use the 192.168.x.x address (not a VPN one). Firewall allowing REAPER? |
+| Page doesn't load on the tablet (works on the PC) | Windows Firewall is blocking REAPER — see the firewall note under Install. Also: exact address including `/reaper-controller/index.html`, same Wi‑Fi, the 192.168.x.x address (not a VPN one); VPNs may need *Allow LAN connections*. |
 | **Script not running** | Run *ReaperController.lua* from REAPER's action list (see Install step 3). |
 | A plugin window doesn't open | It opens on the PC's screen in REAPER — check behind other windows. |
 | Changes seem slow | The page polls REAPER ~20×/s and the script ~15×/s; big projects take a bit longer to snapshot. |
