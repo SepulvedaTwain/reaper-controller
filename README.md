@@ -41,10 +41,11 @@ something changes) and runs command batches the page sends, acknowledging each o
    - `reaper\ReaperController.lua` → `%APPDATA%\REAPER\Scripts\ReaperController\`
 
    and prints the address to open. (Portable REAPER: `install.bat -ReaperPath "D:\Your\REAPER"`.)
-3. **Start the script in REAPER:** Actions → Show action list → **New action → Load ReaScript…** → pick
+3. **Start the script in REAPER.** `install.bat` asks whether to **start it automatically whenever REAPER
+   opens** (it adds a few marked lines to `Scripts\__startup.lua`; delete them to turn that off). To start it
+   right away without restarting REAPER: Actions → Show action list → **New action → Load ReaScript…** → pick
    `Scripts\ReaperController\ReaperController.lua` → **Run**. It keeps running in the background until REAPER
-   closes. Next time it's already in the action list — search *ReaperController* and run it (or add it to a
-   toolbar, or start it from `Scripts\__startup.lua` to run automatically).
+   closes. After updating, run it again → *Terminate instances*, then run it once more.
 4. **On the tablet** open
 
    ```
@@ -67,7 +68,17 @@ network type (Public/Private).
 ## Using it
 
 The status pill shows **Connected** (REAPER + script), **Script not running** (REAPER reachable — faders, mute,
-solo, arm, meters and transport still work, the rest needs the script) or **REAPER offline**.
+solo, arm, meters and transport still work; anything that needs the script says so when you tap it) or
+**REAPER offline**. Tap the pill to see how much time the script spends per snapshot.
+
+### Top bar and timeline
+
+- **Transport:** ⏮ go to start · ▶ play · ⏸ pause · ■ stop · ● record · ⟲ repeat, and the play position
+  (bars.beats and time).
+- **Undo / redo:** REAPER's undo and redo; hover/hold shows what they'll undo (e.g. *Undo: add send*).
+- **Timeline:** the whole project as a bar — regions (coloured, named), markers, the play position (red while
+  recording). **Tap or drag** to jump there.
+- **S / M / L** strip width, **Layout** (see below), **+ Track** (name + after the selected track or at the end).
 
 ### Mixer strips
 
@@ -77,7 +88,7 @@ From top to bottom, like REAPER's mixer:
 |---|---|---|
 | **FX slots** | Opens / closes that plugin's window in REAPER | Hold: bypass / un-bypass |
 | **Input** | Choose the record input (MIDI device + channel, mono or stereo audio, none) | |
-| **● ⦿ mode** | Arm · monitoring (off → on → tape auto) · record mode (IN / OVR / REP…) | Mode opens the record panel |
+| **● ⦿ mode** | Arm · record monitoring (👁 grey = off, green = on — you hear the input, yellow = tape auto: only while recording/stopped) · record mode (IN / OVR / REP…) | Mode opens the record panel |
 | **Fader** | Drag up/down (moves from where it is, never jumps) | Double-tap: 0 dB |
 | **Meter** | Peak level, -60 to +6 dB | |
 | **Pan** | Drag sideways | Double-tap: centre |
@@ -87,8 +98,20 @@ From top to bottom, like REAPER's mixer:
 | **⋯** | Track options | |
 | **Name** | Selects the track in REAPER | Hold: track options |
 
-The master strip is pinned on the left; tracks scroll sideways. **S / M / L** in the top bar sets the strip width.
-**+ Track** adds a track after the selected one (or at the end), with an optional name.
+The master strip is pinned on the left; tracks scroll sideways.
+
+### Layout mode
+
+Tap the **Layout** button (square-in-corners icon); touches don't change anything while it's on:
+
+| Pinch on… | Changes |
+|---|---|
+| Top bar | size of the whole top bar (transport, undo/redo, buttons) |
+| Timeline | ↕ its height |
+| Mixer | ↔ strip width · ↕ how many FX slots show per strip (0 hides them) |
+
+**Reset** restores the defaults, **Done** returns to playing. Saved on the device. On a computer: Ctrl+wheel (↔) /
+Shift+wheel (↕) over the same areas.
 
 ### Panels
 
@@ -112,10 +135,6 @@ The master strip is pinned on the left; tracks scroll sideways. **S / M / L** in
 
 Adding, deleting, renaming tracks and changing sends are REAPER undo points (**Ctrl+Z** in REAPER).
 
-### Transport
-
-⏮ go to start · ▶ play · ⏸ pause · ■ stop · ● record · ⟲ repeat, and the play position (bars.beats and time).
-
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -123,8 +142,17 @@ Adding, deleting, renaming tracks and changing sends are REAPER undo points (**C
 | Page doesn't load on the tablet (works on the PC) | Windows Firewall is blocking REAPER — see the firewall note under Install. Also: exact address including `/reaper-controller/index.html`, same Wi‑Fi, the 192.168.x.x address (not a VPN one); VPNs may need *Allow LAN connections*. |
 | **Script not running** | Run *ReaperController.lua* from REAPER's action list (see Install step 3). |
 | A plugin window doesn't open | It opens on the PC's screen in REAPER — check behind other windows. |
-| Changes seem slow | The page polls REAPER ~20×/s and the script ~15×/s; big projects take a bit longer to snapshot. |
+| Changes seem slow | The page polls REAPER ~20×/s and the script snapshots ~15×/s; big projects take a bit longer. |
+| **Add track** / FX / routing do nothing | The script isn't running — the page says so; start it (Install step 3). |
 | Updated the files | Run `install.bat` again and reload the page. To reload the script: run it again → *Terminate instances*, then run it once more. |
+
+## Performance
+
+The script is light. Every REAPER frame (~30×/s) it only checks for commands; while a tablet is connected it
+takes a snapshot of the mixer ~15×/s (reading track settings, FX names and routing — the same data REAPER's own
+mixer shows) and publishes it only when something changed. **When no tablet is connected it idles to one
+snapshot a second** (the page pings it about once a second). Tap the status pill to see the measured cost per
+snapshot on your project. Plugins' audio processing is never touched.
 
 ## Development
 
@@ -154,7 +182,8 @@ reaper-controller/
 │   ├── index.html
 │   ├── css/app.css
 │   └── js/  main.js (top bar) · api.js (REAPER web API + ExtState protocol) · mixer.js (strips)
-│            sheets.js (input / record / routing / track panels) · ui.js (helpers)
+│            sheets.js (input / record / routing / track / add-track panels) · timeline.js
+│            layout.js (Layout mode, pinch) · ui.js (helpers)
 ├── tools/  demo_server.py · test_lua.py · screenshots.ps1 · shot.html
 └── docs/images/
 ```
@@ -169,9 +198,12 @@ reaper-controller/
 | `in` | page | `{"s": seq, "c": [commands]}` |
 | `ack` | script | `seq` of the last batch run — the page then sends the next one (and resends if no ack) |
 
+| `client` | page | Changes about once a second while a tablet is connected (the script idles without it) |
+| `perf` | script | Average milliseconds per snapshot |
+
 Commands: `set` (mon, recmode, input, mainsend, fxen, phase, nchan, autoarm, monitems, midiout), `name`, `select`,
 `fx_float`, `fx_chain`, `fx_enable`, `track_add`, `track_delete`, `send_add`, `recv_add`, `hw_add`,
-`route_set`, `route_remove`. Volume, pan, mute, solo, arm and transport go straight to REAPER's web API
+`route_set`, `route_remove`, `seek`. State also carries `project`: length, markers/regions, next undo/redo. Volume, pan, mute, solo, arm and transport go straight to REAPER's web API
 (`SET/TRACK/…`, action IDs).
 
 ## License

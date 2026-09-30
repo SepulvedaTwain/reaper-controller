@@ -113,8 +113,10 @@ class Strip {
         const n = store.native[this.index];
         const cur = has(n, FLAG.monAuto) ? 2 : has(n, FLAG.monOn) ? 1 : 0;
         const next = (cur + 1) % 3; // off → on → auto (tape style)
+        if (!store.scriptAlive) return lua({}); // shows the "needs the script" hint
         hold(this.id, "mon", next, 1500);
         lua({ cmd: "set", id: id(), key: "mon", value: next });
+        toast(["Record monitoring: off", "Record monitoring: on (hear the input)", "Record monitoring: tape auto style"][next]);
         this.renderNative();
       });
       onPress(this.q(".mode"), () => emit("open-record", this.id));

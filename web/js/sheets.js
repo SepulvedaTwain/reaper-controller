@@ -28,7 +28,7 @@ function close() {
 
 function draw() {
   if (!current) return;
-  const track = trackById(current.id);
+  const track = current.id ? trackById(current.id) : {};
   if (!track) return close(); // deleted meanwhile
   dlg.querySelector("h2").textContent = current.title(track);
   const body = dlg.querySelector(".sheet-body");
@@ -252,6 +252,40 @@ export function openMenu(id) {
       close();
       toast("Track deleted");
     };
+  });
+}
+
+// --- Add track ------------------------------------------------------------------------------
+
+export function openAddTrack() {
+  if (!store.scriptAlive) {
+    toast("Adding tracks needs ReaperController.lua running in REAPER");
+    return;
+  }
+  const selected = () => store.state?.tracks.find((t) => (store.native[t.n]?.flags ?? 0) & 2);
+  let where = selected() ? "after" : "end";
+  openSheet(null, () => "Add track", (body) => {
+    const sel = selected();
+    if (!sel && where === "after") where = "end";
+    const prev = body.querySelector("#aName")?.value ?? "";
+    body.innerHTML = `
+      <label class="field">Name (optional)
+        <input type="text" id="aName" placeholder="New track" value="${esc(prev)}">
+      </label>
+      <h3>Where</h3>
+      <div class="choices" id="aWhere">
+        ${sel ? choice("after", `After ${sel.n} · ${sel.name || `Track ${sel.n}`} (selected)`, where === "after") : ""}
+        ${choice("end", "At the end", where === "end")}
+      </div>
+      <button class="btn primary" id="aAdd">${icons.plus} Add track</button>`;
+    body.querySelectorAll("#aWhere .choice").forEach((b) => { b.onclick = () => { where = b.dataset.v; draw(); }; });
+    const add = () => {
+      lua({ cmd: "track_add", after: where === "after" ? selected()?.id : undefined, name: body.querySelector("#aName").value.trim() });
+      toast("Track added");
+      close();
+    };
+    body.querySelector("#aAdd").onclick = add;
+    body.querySelector("#aName").onkeydown = (e) => { if (e.key === "Enter") add(); };
   });
 }
 

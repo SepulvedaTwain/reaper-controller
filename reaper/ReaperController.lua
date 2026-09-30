@@ -239,9 +239,28 @@ end
 
 local deviceCache, deviceTime = nil, -100
 
+-- Project length, markers and regions (for the timeline bar) + what undo/redo would do.
+local function project()
+  local p = { len = reaper.GetProjectLength(0), marks = A(), undo = reaper.Undo_CanUndo2(0), redo = reaper.Undo_CanRedo2(0) }
+  local i = 0
+  while true do
+    local n, isRegion, pos, rgnEnd, name, _, color = reaper.EnumProjectMarkers3(0, i)
+    if n == 0 then break end
+    local m = { pos = pos, name = name, rgn = isRegion }
+    if isRegion then m["end"] = rgnEnd end
+    if color and color ~= 0 then
+      local r, g, b = reaper.ColorFromNative(color)
+      m.color = string.format("#%02x%02x%02x", r, g, b)
+    end
+    p.marks[#p.marks + 1] = m
+    i = i + 1
+  end
+  return p
+end
+
 local function buildState(now)
   if now - deviceTime > 5 then deviceCache, deviceTime = devices(), now end
-  local s = { v = 1, devices = deviceCache, master = trackState(reaper.GetMasterTrack(0), true), tracks = A() }
+  local s = { v = 1, devices = deviceCache, project = project(), master = trackState(reaper.GetMasterTrack(0), true), tracks = A() }
   for i = 0, reaper.CountTracks(0) - 1 do s.tracks[#s.tracks + 1] = trackState(reaper.GetTrack(0, i), false) end
   return s
 end
@@ -331,6 +350,10 @@ local HANDLERS = {
     local key, value = ROUTE_KEYS[c.key], num(c.value)
     if tr and key and value and c.cat and c.idx then reaper.SetTrackSendInfo_Value(tr, c.cat, c.idx, key, value) end
   end,
+  seek = function(c)
+    local pos = tonumber(c.pos)
+    if pos then reaper.SetEditCurPos(math.max(0, pos), true, true) end -- move view + playback
+  end,
 }
 
 local function run(c)
@@ -359,11 +382,18 @@ end
 -- Main loop
 
 local lastState, lastTick, ver, beat, lastError = "", 0, math.random(1, 1000000), 0, nil
+local lastClient, lastClientTime = nil, -100
+local IDLE_INTERVAL = 1 -- seconds between snapshots while no tablet is connected
+local cost, costCount = 0, 0 -- average snapshot time (ms), published as ReaperController/perf
 
 local function tick()
   handleInbox()
   local now = reaper.time_precise()
-  if now - lastTick >= INTERVAL then
+  -- The page writes "client" about once a second. With no tablet around, idle: one snapshot a second.
+  local client = reaper.GetExtState(SECTION, "client")
+  if client ~= lastClient then lastClient, lastClientTime = client, now end
+  local active = now - lastClientTime < 5
+  if now - lastTick >= (active and INTERVAL or IDLE_INTERVAL) then
     lastTick = now
     local state = encode(buildState(now))
     if state ~= lastState then
@@ -374,6 +404,9 @@ local function tick()
     end
     beat = beat + 1
     reaper.SetExtState(SECTION, "alive", tostring(beat), false)
+    local ms = (reaper.time_precise() - now) * 1000
+    cost, costCount = cost + (ms - cost) / math.min(costCount + 1, 30), costCount + 1
+    if beat % 15 == 0 then reaper.SetExtState(SECTION, "perf", string.format("%.2f", cost), false) end
   end
 end
 
@@ -388,7 +421,7 @@ local function loop()
 end
 
 reaper.atexit(function()
-  for _, key in ipairs({ "alive", "state", "ver", "in", "ack" }) do reaper.DeleteExtState(SECTION, key, false) end
+  for _, key in ipairs({ "alive", "state", "ver", "in", "ack", "perf", "client" }) do reaper.DeleteExtState(SECTION, key, false) end
 end)
 
 loop()

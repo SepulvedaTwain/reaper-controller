@@ -86,6 +86,15 @@ class Demo:
         self.tracks[0]["hw"].append({"dst": 2, "vol": 1.0, "pan": 0.0, "mute": False, "mode": 0})
         self.tracks[1]["fx"][1]["open"] = True
         self.tracks[4]["fx"][1]["en"] = False
+        self.project = {"len": 420.0, "undo": "Reaper Controller: add send", "marks": [
+            {"pos": 0.0, "end": 60.0, "name": "Intro", "rgn": True, "color": "#3c78b4"},
+            {"pos": 60.0, "end": 150.0, "name": "Verse", "rgn": True, "color": "#4f9a6a"},
+            {"pos": 150.0, "end": 240.0, "name": "Chorus", "rgn": True, "color": "#c2415c"},
+            {"pos": 240.0, "end": 330.0, "name": "Bridge", "rgn": True, "color": "#8a5cc2"},
+            {"pos": 105.0, "name": "drop", "rgn": False},
+            {"pos": 300.0, "name": "strings in", "rgn": False},
+        ]}
+        self.ext[(SECTION, "perf")] = "0.42"
         self._publish()
 
     # --- what ReaperController.lua would publish ------------------------------------------
@@ -116,7 +125,7 @@ class Demo:
         return v
 
     def _publish(self):
-        state = json.dumps({"v": 1, "devices": self.devices, "master": self._view(self.master, 0),
+        state = json.dumps({"v": 1, "devices": self.devices, "project": self.project, "master": self._view(self.master, 0),
                             "tracks": [self._view(t, i + 1) for i, t in enumerate(self.tracks)]})
         if state != self.last_state:
             self.last_state = state
@@ -127,6 +136,9 @@ class Demo:
     # --- commands (like the Lua HANDLERS) ----------------------------------------------------
     def run(self, c):
         cmd, t = c.get("cmd"), self._find(c.get("id"))
+        if cmd == "seek":
+            self.transport["pos"] = max(0.0, float(c["pos"]))
+            return
         if cmd == "track_add":
             idx = self._n(c["after"]) if c.get("after") else len(self.tracks)
             self.tracks.insert(idx or len(self.tracks), new_track(c.get("name") or ""))
@@ -277,6 +289,11 @@ class Demo:
             tr["pos"] = 0.0
         elif action_id == 1068:
             tr["rep"] = not tr["rep"]
+        elif action_id == 40029:
+            self.project["redo"], self.project["undo"] = self.project.get("undo"), None
+        elif action_id == 40030:
+            self.project["undo"], self.project["redo"] = self.project.get("redo"), None
+        self._publish()
 
 
 def make_handler(demo: Demo):

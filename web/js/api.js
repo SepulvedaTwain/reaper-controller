@@ -16,6 +16,7 @@ export const store = {
   state: null, // from the script: { devices, master, tracks: [...] }
   native: [], // index 0 = master, 1… = tracks: { name, flags, vol, pan, peak, sends, recvs, hw }
   transport: { state: 0, pos: 0, rep: false, beats: "", time: "" },
+  perf: null, // ms the script spends per snapshot (ReaperController/perf)
 };
 
 // --- outgoing ------------------------------------------------------------------------------
@@ -32,6 +33,10 @@ export function native(key, command) {
 
 /** Queue a command for ReaperController.lua. `coalesce` replaces an unsent command with the same key. */
 export function lua(command, coalesce) {
+  if (!store.scriptAlive) {
+    emit("needs-script"); // tell the user instead of silently doing nothing
+    return;
+  }
   if (coalesce) {
     const i = luaQueue.findIndex((c) => c.__key === coalesce);
     if (i >= 0) { luaQueue[i] = { ...command, __key: coalesce }; return; }
@@ -98,11 +103,16 @@ async function request(parts) {
   return res.text();
 }
 
+let pollCount = 0;
+
 async function pollOnce() {
   const parts = outgoingParts();
   parts.push("TRANSPORT", "TRACK", `GET/EXTSTATE/${SECTION}/ver`, `GET/EXTSTATE/${SECTION}/ack`, `GET/EXTSTATE/${SECTION}/alive`);
   if (wantState) parts.push(`GET/EXTSTATE/${SECTION}/state`);
+  // About once a second: tell the script a tablet is here (it idles otherwise) and read its cost.
+  if (pollCount++ % 20 === 0) parts.push(`SET/EXTSTATE/${SECTION}/client/${pollCount}`, `GET/EXTSTATE/${SECTION}/perf`);
   const { native, ext } = parse(await request(parts));
+  if (ext.perf) store.perf = parseFloat(ext.perf);
 
   if (!store.connected) { store.connected = true; emit("link"); }
   store.native = native;

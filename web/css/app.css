@@ -93,7 +93,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .banner.warn { background: color-mix(in srgb, var(--warn) 12%, var(--surface)); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
 
 /* ---------- Mixer ---------- */
-#mixer { flex: 1; min-height: 0; display: flex; gap: 0.5rem; }
+#mixer { position: relative; flex: 1; min-height: 0; display: flex; gap: 0.5rem; }
 #masterStrip { flex: none; display: flex; padding-right: 0.5rem; border-right: 1px solid var(--border); }
 #tracks {
   flex: 1; min-width: 0; display: flex; gap: 0.35rem; overflow-x: auto; overflow-y: hidden;
@@ -112,7 +112,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .strip.folder { background: color-mix(in srgb, var(--tc) 10%, var(--surface)); }
 .s-color { position: absolute; top: 0; left: 0.6rem; right: 0.6rem; height: 3px; border-radius: 0 0 3px 3px; background: var(--tc); }
 
-.s-fx { flex: none; height: calc(5 * 1.45rem + 4 * 0.15rem); overflow-y: auto; display: flex; flex-direction: column; gap: 0.15rem; scrollbar-width: none; }
+.s-fx { flex: none; height: calc(var(--fx-rows, 5) * 1.6rem); overflow-y: auto; display: flex; flex-direction: column; gap: 0.15rem; scrollbar-width: none; }
 .s-fx::-webkit-scrollbar { display: none; }
 .fx-slot {
   flex: none; height: 1.45rem; padding: 0 0.35rem; border-radius: 0.35rem; border: 1px solid var(--border);
@@ -260,3 +260,52 @@ select.add { color: var(--muted); }
 @media (max-width: 760px) {
   .brand-name, #time { display: none; }
 }
+
+/* ---------- Undo / redo, status ---------- */
+.t-btn.dim { opacity: 0.35; }
+button.pill { font: inherit; font-size: 0.8rem; cursor: pointer; }
+.btn.primary, .chip.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+/* ---------- Timeline ---------- */
+#timeline { position: relative; flex: none; height: var(--tl-h, 44px); display: flex; flex-direction: column; gap: 0.15rem; }
+#tlBar {
+  position: relative; flex: 1; min-height: 0.8rem; border-radius: 0.5rem; overflow: hidden;
+  background: var(--track); border: 1px solid var(--border); touch-action: none; cursor: pointer;
+}
+#tlPlayed { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+#tlHead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); box-shadow: 0 0 0.5rem var(--accent); }
+body.recording #tlHead { background: var(--rec); box-shadow: 0 0 0.5rem var(--rec); }
+body.recording #tlPlayed { background: color-mix(in srgb, var(--rec) 18%, transparent); }
+.tl-region {
+  position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--mc) 28%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--mc) 70%, transparent); overflow: hidden; pointer-events: none;
+}
+.tl-region span, .tl-marker span {
+  position: absolute; top: 0.1rem; left: 0.25rem; font-size: 0.62rem; font-weight: 650; white-space: nowrap; color: var(--text); opacity: 0.85;
+}
+.tl-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--mc); pointer-events: none; }
+.tl-marker span { bottom: 0.1rem; top: auto; }
+.tl-labels { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--muted); line-height: 1; }
+
+/* ---------- Layout mode ---------- */
+#layoutBanner { display: none; }
+.layout-mode #layoutBanner {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; flex: none; padding: 0.45rem 0.45rem 0.45rem 0.9rem;
+  border-radius: 0.9rem; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.banner-text { color: var(--muted); font-size: 0.82rem; }
+.area-hint { display: none; }
+.layout-mode .area { outline: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 0.2rem; border-radius: 0.8rem; touch-action: none; }
+.layout-mode .area-hint {
+  position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; pointer-events: none;
+}
+.layout-mode #topbar { position: relative; }
+.area-hint span {
+  padding: 0.35rem 0.8rem; border-radius: 999px; background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border: 1px solid var(--border-strong); font-size: 0.8rem; font-weight: 650; box-shadow: var(--shadow);
+}
+.layout-mode #tracks, .layout-mode #masterStrip { opacity: 0.55; }
+.icon-btn[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* Monitoring button: off is clearly off */
+.s-btn.mon[data-mon="0"] { opacity: 0.45; }

@@ -12,9 +12,9 @@
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <header id="topbar">
+  <header id="topbar" class="area">
     <div class="brand"><span class="brand-mark"></span><span class="brand-name">Reaper Controller</span></div>
-    <div id="status" class="pill off" title="REAPER web interface + ReaperController.lua"><span class="dot"></span><span class="text">Connecting…</span></div>
+    <button id="status" class="pill off" title="Tap for details"><span class="dot"></span><span class="text">Connecting…</span></button>
     <div class="transport">
       <button class="t-btn" id="tStart" data-icon="start" title="Go to start"></button>
       <button class="t-btn" id="tPlay" data-icon="play" title="Play"></button>
@@ -24,25 +24,50 @@
       <button class="t-btn" id="tRepeat" data-icon="repeat" title="Repeat"></button>
     </div>
     <div class="position"><span id="pos" class="mono">—</span><span id="time" class="mono"></span></div>
+    <div class="transport">
+      <button class="t-btn" id="tUndo" data-icon="undo" title="Undo"></button>
+      <button class="t-btn" id="tRedo" data-icon="redo" title="Redo"></button>
+    </div>
     <span class="spacer"></span>
     <div class="seg" id="sizes" title="Strip width">
       <button data-size="s">S</button><button data-size="m">M</button><button data-size="l">L</button>
     </div>
-    <button class="chip" id="addTrack" data-icon="plus" title="Add a track (after the selected one)"><span>Track</span></button>
+    <button class="icon-btn" id="btnLayout" data-icon="layout" aria-pressed="false" title="Layout mode: pinch to resize"></button>
+    <button class="chip" id="addTrack" data-icon="plus" title="Add a track"><span>Track</span></button>
+    <div class="area-hint"><span>Pinch · top bar size</span></div>
   </header>
+
+  <div id="layoutBanner">
+    <strong>Layout</strong>
+    <span class="banner-text">Pinch the top bar to resize it · pinch the timeline ↕ · pinch the mixer ↔ strip width, ↕ FX slots</span>
+    <span class="spacer"></span>
+    <button class="chip" id="btnLayoutReset">Reset</button>
+    <button class="chip primary" id="btnLayoutDone">Done</button>
+  </div>
 
   <div id="offlineHint" class="banner" hidden>
     Can't reach REAPER's web interface — is REAPER running, and is this page opened from REAPER's address (port 2307)?
   </div>
   <div id="scriptHint" class="banner warn" hidden>
-    <b>ReaperController.lua isn't running in REAPER.</b> Faders, mute, solo and transport work, but FX, inputs, record modes,
-    routing and adding tracks need it: in REAPER, Actions → Show action list → search “ReaperController” → Run.
+    <b>ReaperController.lua isn't running in REAPER.</b> Faders, mute, solo, arm and transport work, but FX, inputs, record
+    modes, routing, the timeline and adding tracks need it: in REAPER, Actions → Show action list → search “ReaperController” → Run.
   </div>
 
-  <main id="mixer">
+  <section id="timeline" class="area">
+    <div id="tlBar">
+      <div id="tlPlayed"></div>
+      <div id="tlMarks"></div>
+      <div id="tlHead"></div>
+    </div>
+    <div class="tl-labels"><span id="tlNow" class="mono">0:00</span><span id="tlEnd" class="mono">0:00</span></div>
+    <div class="area-hint"><span>Pinch ↕ · timeline height</span></div>
+  </section>
+
+  <main id="mixer" class="area">
     <div id="masterStrip"></div>
     <div id="tracks"></div>
     <p id="emptyHint" class="empty" hidden>No tracks yet — tap <b>+ Track</b>.</p>
+    <div class="area-hint"><span>Pinch ↔ strip width · ↕ FX slots</span></div>
   </main>
 
   <dialog id="sheet"></dialog>

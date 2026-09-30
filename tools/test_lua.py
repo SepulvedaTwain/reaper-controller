@@ -110,6 +110,18 @@ class FakeReaper:
     def GetMIDIInputName(self, i, buf): return (True, "KeyStep 37") if i == 0 else (False, "")
     def GetNumMIDIOutputs(self): return 1
     def GetMIDIOutputName(self, i, buf): return True, "KeyStep 37"
+    # --- project
+    marks = [(False, 12.0, 0.0, "Verse", 0), (True, 30.0, 60.0, "Chorus", 0x1000000 | 0xc2415c)]
+    cursor = 0.0
+    def GetProjectLength(self, p): return 180.0
+    def Undo_CanUndo2(self, p): return self.undo[-1] if self.undo else None
+    def Undo_CanRedo2(self, p): return None
+    def EnumProjectMarkers3(self, p, i):
+        if i >= len(self.marks):
+            return 0, False, 0.0, 0.0, "", 0, 0
+        rgn, pos, end, name, color = self.marks[i]
+        return i + 1, rgn, pos, end, name, i + 1, color
+    def SetEditCurPos(self, pos, view, seek): self.cursor = pos
     # --- extstate / runtime
     def GetExtState(self, s, k): return self.ext.get((s, k), "")
     def SetExtState(self, s, k, v, persist): self.ext[(s, k)] = v
@@ -193,6 +205,30 @@ def main():
     tick()
     check("bad JSON ignored, inbox cleared", ("ReaperController", "in") not in fake.ext)
     check("undo points for structural changes", "Reaper Controller: add track" in fake.undo and "Reaper Controller: delete track" in fake.undo)
+    p = state()["project"]
+    check("project length + markers + region with colour",
+          p["len"] == 180 and p["marks"][0] == {"pos": 12, "name": "Verse", "rgn": False}
+          and p["marks"][1]["end"] == 60 and p["marks"][1]["color"] == "#c2415c")
+    check("undo label published", p["undo"].startswith("Reaper Controller:") and "redo" not in p)
+    send(110, {"cmd": "seek", "pos": 42.5})
+    check("seek moves the edit cursor", fake.cursor == 42.5)
+    # Idle: with no "client" ping for 5 s, snapshots drop to once a second.
+    fake.ext[("ReaperController", "client")] = "1"
+    tick(3)
+    beats = lambda: int(fake.ext[("ReaperController", "alive")])
+    fake.clock += 10  # page gone for 10 s
+    b0 = beats()
+    for _ in range(20):
+        fake.deferred()  # each call advances the fake clock 0.1 s → 2 s total
+    idle_snapshots = beats() - b0
+    fake.ext[("ReaperController", "client")] = "2"  # page back
+    b1 = beats()
+    for _ in range(20):
+        fake.deferred()
+    active_snapshots = beats() - b1
+    check(f"idles without a tablet (2 s: {idle_snapshots} idle vs {active_snapshots} active snapshots)",
+          idle_snapshots <= 3 and active_snapshots >= 15)
+    check("snapshot cost published", float(fake.ext.get(("ReaperController", "perf"), "-1")) >= 0)
     check("no script errors", not fake.console)
     for m in fake.console:
         print("   console:", m.strip())
