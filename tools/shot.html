@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d11; } iframe { border: 0; width: 100%; height: 100%; display: block; }</style>
+</head>
+<body>
+<script>
+// Screenshot harness for the README (not part of the app). tools/screenshots.ps1 serves it from the
+// demo server; it loads the mixer in a frame and opens a panel for each scene.
+const scene = new URLSearchParams(location.search).get("s") || "mixer";
+const f = document.createElement("iframe");
+f.src = "/reaper-controller/index.html";
+document.body.append(f);
+f.onload = () => setTimeout(() => {
+  const doc = f.contentDocument;
+  const strip = (name) => [...doc.querySelectorAll("#tracks .strip")].find((s) => s.querySelector(".s-title").textContent === name);
+  const press = (el) => el && el.dispatchEvent(new f.contentWindow.PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 9 }));
+  if (scene === "routing") press(strip("Serum Lead").querySelector(".io"));
+  if (scene === "record") press(strip("Serum Pad").querySelector(".mode"));
+  if (scene === "input") press(strip("Drums").querySelector(".s-input"));
+  if (scene === "menu") press(strip("Glitch (granular)").querySelector(".menu"));
+}, 1800);
+</script>
+</body>
+</html>

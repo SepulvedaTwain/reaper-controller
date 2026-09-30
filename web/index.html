@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Reaper Mixer">
+  <meta name="theme-color" content="#0b0d11">
+  <title>Reaper Controller</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand"><span class="brand-mark"></span><span class="brand-name">Reaper Controller</span></div>
+    <div id="status" class="pill off" title="REAPER web interface + ReaperController.lua"><span class="dot"></span><span class="text">Connecting…</span></div>
+    <div class="transport">
+      <button class="t-btn" id="tStart" data-icon="start" title="Go to start"></button>
+      <button class="t-btn" id="tPlay" data-icon="play" title="Play"></button>
+      <button class="t-btn" id="tPause" data-icon="pause" title="Pause"></button>
+      <button class="t-btn" id="tStop" data-icon="stop" title="Stop"></button>
+      <button class="t-btn rec" id="tRec" data-icon="record" title="Record"></button>
+      <button class="t-btn" id="tRepeat" data-icon="repeat" title="Repeat"></button>
+    </div>
+    <div class="position"><span id="pos" class="mono">—</span><span id="time" class="mono"></span></div>
+    <span class="spacer"></span>
+    <div class="seg" id="sizes" title="Strip width">
+      <button data-size="s">S</button><button data-size="m">M</button><button data-size="l">L</button>
+    </div>
+    <button class="chip" id="addTrack" data-icon="plus" title="Add a track (after the selected one)"><span>Track</span></button>
+  </header>
+
+  <div id="offlineHint" class="banner" hidden>
+    Can't reach REAPER's web interface — is REAPER running, and is this page opened from REAPER's address (port 2307)?
+  </div>
+  <div id="scriptHint" class="banner warn" hidden>
+    <b>ReaperController.lua isn't running in REAPER.</b> Faders, mute, solo and transport work, but FX, inputs, record modes,
+    routing and adding tracks need it: in REAPER, Actions → Show action list → search “ReaperController” → Run.
+  </div>
+
+  <main id="mixer">
+    <div id="masterStrip"></div>
+    <div id="tracks"></div>
+    <p id="emptyHint" class="empty" hidden>No tracks yet — tap <b>+ Track</b>.</p>
+  </main>
+
+  <dialog id="sheet"></dialog>
+  <div id="toast" role="status"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
