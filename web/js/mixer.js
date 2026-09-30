@@ -2,7 +2,7 @@
 // Structure (FX, inputs, routing) comes from ReaperController.lua; volume, pan, mute, solo, arm,
 // monitoring and meters from REAPER's native web API, so they update instantly.
 
-import { store, native, lua, FLAG, has } from "./api.js";
+import { store, native, lua, live, FLAG, has } from "./api.js";
 import {
   icons, esc, on, emit, clamp, onPress, tapOrHold, dragValue, setPressed,
   volToDb, dbToVol, posToDb, dbToPos, fmtDb, fmtPan, meterPos, toast,
@@ -128,20 +128,22 @@ class Strip {
     }
   }
 
-  // REAPER treats web volume/pan changes as a "touch": the undo point is made when the touch
-  // ends — a value ending in "e" — or 8 s later. Without the end marker, pressing Undo during
-  // those 8 s undoes the previous step instead of the fader move.
-  setVol(v, end = false) {
-    hold(this.id, "vol", v);
-    this.vol = v;
-    native(`vol:${this.id}`, `SET/TRACK/${this.index}/VOL/${v.toFixed(6)}${end ? "e" : ""}`);
-    this.renderNative();
-  }
+  // With the script running: values stream through the "live" channel while dragging (no undo
+  // points) and the final value is a normal command → exactly one REAPER undo point per drag.
+  // (REAPER's own web volume command makes an undo point for every update.)
+  // Without the script: REAPER's web API, so the faders still work.
+  setVol(v, end = false) { this.setLevel("vol", "VOL", v, end, 6); }
+  setPan(p, end = false) { this.setLevel("pan", "PAN", p, end, 4); }
 
-  setPan(p, end = false) {
-    hold(this.id, "pan", p);
-    this.pan = p;
-    native(`pan:${this.id}`, `SET/TRACK/${this.index}/PAN/${p.toFixed(4)}${end ? "e" : ""}`);
+  setLevel(key, what, value, end, digits) {
+    hold(this.id, key, value);
+    this[key] = value;
+    if (store.scriptAlive && !this.id.startsWith("#")) {
+      if (end) lua({ cmd: "set", id: this.id, key, value: +value.toFixed(digits) });
+      else live(this.id, key, +value.toFixed(digits));
+    } else {
+      native(`${key}:${this.id}`, `SET/TRACK/${this.index}/${what}/${value.toFixed(digits)}${end ? "e" : ""}`);
+    }
     this.renderNative();
   }
 

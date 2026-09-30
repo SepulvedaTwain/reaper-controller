@@ -236,6 +236,18 @@ def main():
     send(112, *[{"cmd": "route_set", "id": "{B}", "cat": 0, "idx": 0, "key": "vol", "value": v} for v in (0.2, 0.3)])
     send(113, {"cmd": "route_set", "id": "{B}", "cat": 0, "idx": 0, "key": "vol", "value": 0.4, "final": True})
     check("send-level drag: one undo point, only on the final value", fake.undo[n0:] == ["Reaper Controller: send vol"])
+    # Fader drag: live values (no undo points) then the final value as a command (one undo point).
+    n0 = len(fake.undo)
+    for v in (0.8, 0.6, 0.5):
+        fake.ext[("ReaperController", "live")] = json.dumps({"{B}": {"vol": v, "pan": -0.2}})
+        tick(1)
+    check("live values applied without undo points",
+          abs(fake.tracks[1].info["D_VOL"] - 0.5) < 1e-9 and abs(fake.tracks[1].info["D_PAN"] + 0.2) < 1e-9
+          and len(fake.undo) == n0 and ("ReaperController", "live") not in fake.ext)
+    fake.ext[("ReaperController", "live")] = json.dumps({"{B}": {"vol": 0.45}})  # stale value in the same tick…
+    send(114, {"cmd": "set", "id": "{B}", "key": "vol", "value": 0.4})  # …the final command still wins
+    check("drag ends with exactly one undo point and the final value",
+          abs(fake.tracks[1].info["D_VOL"] - 0.4) < 1e-9 and fake.undo[n0:] == ["Reaper Controller: volume"])
     check("snapshot cost published", float(fake.ext.get(("ReaperController", "perf"), "-1")) >= 0)
     check("no script errors", not fake.console)
     for m in fake.console:

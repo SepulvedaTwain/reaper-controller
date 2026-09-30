@@ -12,6 +12,9 @@
     ReaperController/alive   heartbeat, so the page knows this script is running
     ReaperController/in      {"s": seq, "c": [commands]} written by the page
     ReaperController/ack     seq of the last batch executed (the page then sends the next one)
+    ReaperController/live    {"<track id>": {"vol": v, "pan": p}} while a fader/pan is being dragged —
+                             applied immediately, no undo points; the final value comes through "in"
+                             as a normal command and makes exactly one undo point
 
   Run once: Actions → Show action list → New action → Load ReaScript… → pick this file → Run.
   It keeps running in the background until REAPER closes (run it again → Terminate to stop).
@@ -277,7 +280,7 @@ local function byId(id)
 end
 
 local TRACK_KEYS = {
-  mon = "I_RECMON", recmode = "I_RECMODE", input = "I_RECINPUT", mainsend = "B_MAINSEND", fxen = "I_FXEN",
+  vol = "D_VOL", pan = "D_PAN", mon = "I_RECMON", recmode = "I_RECMODE", input = "I_RECINPUT", mainsend = "B_MAINSEND", fxen = "I_FXEN",
   phase = "B_PHASE", nchan = "I_NCHAN", autoarm = "B_AUTO_RECARM", monitems = "I_RECMONITEMS", midiout = "I_MIDIHWOUT",
 }
 local ROUTE_KEYS = { vol = "D_VOL", pan = "D_PAN", mute = "B_MUTE", mode = "I_SENDMODE", dst = "I_DSTCHAN" }
@@ -297,7 +300,7 @@ end
 -- Settings changed through the API don't create undo points by themselves; this records one
 -- (the state *after* the change), so REAPER's Undo goes back to how it was before.
 local UNDO_NAMES = {
-  mon = "record monitoring", recmode = "record mode", input = "record input", mainsend = "master send",
+  vol = "volume", pan = "pan", mon = "record monitoring", recmode = "record mode", input = "record input", mainsend = "master send",
   fxen = "FX bypass", phase = "phase", nchan = "track channels", autoarm = "auto record-arm",
   monitems = "monitor media when recording", midiout = "MIDI hardware output",
 }
@@ -385,6 +388,24 @@ end
 
 local lastSeq = nil
 
+-- Fader / pan drags: latest values only, applied straight away, no undo points.
+-- (REAPER's web API volume command makes an undo point per update, so a drag became many.)
+local function handleLive()
+  local raw = reaper.GetExtState(SECTION, "live")
+  if raw == "" then return end
+  reaper.DeleteExtState(SECTION, "live", false)
+  local ok, msg = pcall(decode, raw)
+  if not ok or type(msg) ~= "table" then return end
+  for id, v in pairs(msg) do
+    local tr = type(v) == "table" and byId(id)
+    if tr then
+      local vol, pan = tonumber(v.vol), tonumber(v.pan)
+      if vol then reaper.SetMediaTrackInfo_Value(tr, "D_VOL", math.max(0, vol)) end
+      if pan then reaper.SetMediaTrackInfo_Value(tr, "D_PAN", math.max(-1, math.min(1, pan))) end
+    end
+  end
+end
+
 local function handleInbox()
   local raw = reaper.GetExtState(SECTION, "in")
   if raw == "" then return end
@@ -408,6 +429,7 @@ local IDLE_INTERVAL = 1 -- seconds between snapshots while no tablet is connecte
 local cost, costCount = 0, 0 -- average snapshot time (ms), published as ReaperController/perf
 
 local function tick()
+  handleLive() -- before the inbox, so a drag's final value (sent via the inbox) always wins
   handleInbox()
   local now = reaper.time_precise()
   -- The page writes "client" about once a second. With no tablet around, idle: one snapshot a second.
@@ -442,7 +464,7 @@ local function loop()
 end
 
 reaper.atexit(function()
-  for _, key in ipairs({ "alive", "state", "ver", "in", "ack", "perf", "client" }) do reaper.DeleteExtState(SECTION, key, false) end
+  for _, key in ipairs({ "alive", "state", "ver", "in", "ack", "perf", "client", "live" }) do reaper.DeleteExtState(SECTION, key, false) end
 end)
 
 loop()

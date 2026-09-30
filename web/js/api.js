@@ -21,7 +21,8 @@ export const store = {
 
 // --- outgoing ------------------------------------------------------------------------------
 
-const nativeQueue = new Map(); // key → command, newest wins (fader moves)
+const nativeQueue = new Map(); // key → command, newest wins
+const liveValues = {}; // track id → { vol, pan } while dragging (ReaperController/live)
 let luaQueue = []; // commands in order; continuous ones are replaced in place
 let inflight = null; // { seq, text, sentAt }
 let seq = Date.now();
@@ -44,6 +45,11 @@ export function lua(command, coalesce) {
     return;
   }
   luaQueue.push(command);
+}
+
+/** Continuous value while dragging (fader/pan): newest wins, applied by the script without undo points. */
+export function live(id, key, value) {
+  (liveValues[id] ||= {})[key] = value;
 }
 
 export const action = (id) => native(`action:${id}:${Math.random()}`, String(id));
@@ -82,6 +88,11 @@ function parse(text) {
 function outgoingParts() {
   const parts = [...nativeQueue.values()];
   nativeQueue.clear();
+  if (Object.keys(liveValues).length) {
+    // Before the inbox batch, so a gesture's final value (sent as a command) is applied last.
+    parts.push(`SET/EXTSTATE/${SECTION}/live/${encodeURIComponent(JSON.stringify(liveValues))}`);
+    for (const k of Object.keys(liveValues)) delete liveValues[k];
+  }
   const now = performance.now();
   if (!inflight && luaQueue.length) {
     seq += 1;

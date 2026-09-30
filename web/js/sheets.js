@@ -239,6 +239,11 @@ export function openMenu(id) {
         <button class="btn" id="mSelect">Select in REAPER</button>
         <button class="btn" id="mInsert">${icons.plus} Insert new track after this one</button>
         <button class="btn danger" id="mDelete">${icons.trash} Delete track</button>
+        <div class="confirm-row" id="mConfirm" hidden>
+          <span>Delete track ${t.n}${t.name ? ` “${esc(t.name)}”` : ""}?</span>
+          <button class="btn" id="mCancel">Cancel</button>
+          <button class="btn danger solid" id="mYes">${icons.trash} Delete</button>
+        </div>
       </div>
       <p class="hint">Adding, deleting and renaming can be undone in REAPER (Ctrl+Z).</p>`;
     const name = body.querySelector("#mName");
@@ -248,21 +253,12 @@ export function openMenu(id) {
     body.querySelector('[data-k="phase"]').onchange = (e) => set(t, "phase", e.target.checked);
     body.querySelector("#mSelect").onclick = () => lua({ cmd: "select", id: t.id });
     body.querySelector("#mInsert").onclick = () => { lua({ cmd: "track_add", after: t.id }); toast("Track added"); close(); };
-    // Two-step delete inside the panel (browser confirm() boxes are blocked in some iPad browsers).
-    const deleteBtn = body.querySelector("#mDelete");
-    let armed = 0;
-    deleteBtn.onclick = () => {
-      if (!armed) {
-        armed = setTimeout(() => {
-          armed = 0;
-          deleteBtn.classList.remove("confirm");
-          deleteBtn.lastChild.textContent = " Delete track";
-        }, 3000);
-        deleteBtn.classList.add("confirm");
-        deleteBtn.lastChild.textContent = " Tap again to delete";
-        return;
-      }
-      clearTimeout(armed);
+    // Confirm with a separate button in a different spot: browser confirm() boxes are blocked in some
+    // iPad browsers, and two quick taps on the same button can be eaten by iPad's double-tap zoom.
+    const confirmRow = body.querySelector("#mConfirm");
+    body.querySelector("#mDelete").onclick = () => { confirmRow.hidden = false; };
+    body.querySelector("#mCancel").onclick = () => { confirmRow.hidden = true; };
+    body.querySelector("#mYes").onclick = () => {
       lua({ cmd: "track_delete", id: t.id });
       close();
       toast("Track deleted — Undo brings it back");

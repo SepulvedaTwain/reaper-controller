@@ -144,6 +144,8 @@ class Demo:
             self.tracks.insert(idx or len(self.tracks), new_track(c.get("name") or ""))
         elif t is None:
             return
+        elif cmd == "set" and c.get("key") in ("vol", "pan"):
+            t[c["key"]] = float(c["value"])
         elif cmd == "set" and c.get("key") in ("mon", "recmode", "input", "mainsend", "fxen", "phase", "nchan",
                                               "autoarm", "monitems", "midiout"):
             v = c["value"]
@@ -257,6 +259,18 @@ class Demo:
             self.ext.pop((section, key), None)
             return
         self.ext[(section, key)] = value
+        if (section, key) == (SECTION, "live"):
+            # Like the Lua script: apply dragged values straight away, then clear.
+            del self.ext[(section, key)]
+            try:
+                for tid, v in json.loads(value).items():
+                    t = self._find(tid)
+                    if t:
+                        if "vol" in v: t["vol"] = max(0.0, float(v["vol"]))
+                        if "pan" in v: t["pan"] = max(-1.0, min(1.0, float(v["pan"])))
+            except (ValueError, AttributeError, TypeError):
+                pass
+            return
         if (section, key) == (SECTION, "in"):
             # What ReaperController.lua does with its inbox.
             del self.ext[(section, key)]

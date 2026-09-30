@@ -48,6 +48,8 @@ body {
 }
 body.recording { background: radial-gradient(120% 60% at 50% -10%, rgba(239, 74, 85, 0.12), transparent 60%), var(--bg); }
 button { font: inherit; color: inherit; cursor: pointer; }
+/* No double-tap-to-zoom anywhere: on iPad it swallows the second of two quick taps. */
+button, input, select, label, .fx-slot, .choice, .sheet { touch-action: manipulation; }
 [hidden] { display: none !important; }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .spacer { flex: 1; }
@@ -309,4 +311,11 @@ body.recording #tlPlayed { background: color-mix(in srgb, var(--rec) 18%, transp
 
 /* Monitoring button: off is clearly off */
 .s-btn.mon[data-mon="0"] { opacity: 0.45; }
-.btn.danger.confirm { background: var(--bad); color: #fff; border-color: transparent; }
+
+
+.btn.danger.solid { background: var(--bad); color: #fff; border-color: transparent; }
+.confirm-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; padding: 0.7rem; border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--bad) 12%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent);
+}
+.confirm-row span { flex: 1 1 100%; font-weight: 650; }
