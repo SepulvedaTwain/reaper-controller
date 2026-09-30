@@ -11,7 +11,8 @@ or the vocal booth.
 
 - **Nothing extra to run.** The page is served by REAPER's own web server, and one Lua script inside REAPER does
   the rest. No Python, no extensions, no drivers.
-- **Instant faders.** Volume, pan, mute, solo, arm, meters and transport use REAPER's built-in web API.
+- **Fast, and undo-friendly.** Mute, solo, arm, meters and transport use REAPER's built-in web API; fader and
+  pan moves stream to the script and become **one undo step per drag**.
 - Works with any browser (iPad, Android, phone, another computer) on the same network.
 
 ---
@@ -21,16 +22,19 @@ or the vocal booth.
 ```mermaid
 flowchart LR
     T["Tablet browser"] -- "HTTP · port 2307" --> W["REAPER web interface<br/>(serves the page)"]
-    W -- "built-in API: volume, pan, mute, solo,<br/>arm, meters, transport" --> R["REAPER"]
+    W -- "built-in API: mute, solo, arm,<br/>meters, transport" --> R["REAPER"]
     W -- "ExtState: state ⇄ commands" --> L["ReaperController.lua<br/>(runs inside REAPER)"]
-    L -- "ReaScript API: FX, inputs, record modes,<br/>routing, add/remove tracks" --> R
+    L -- "ReaScript API: volume/pan, FX, inputs,<br/>record modes, routing, add/remove tracks" --> R
 ```
 
-REAPER's web interface already exposes volume, pan, mute, solo, arm, meters and transport. Everything else —
+REAPER's web interface already exposes mute, solo, arm, meters and transport (and volume/pan — but its volume
+command makes an undo point for every update, so one fader drag became many undo steps). Everything else —
 the FX list, opening plugin windows, inputs, record modes, sends, adding/removing tracks — isn't in that API,
 so a small ReaScript running inside REAPER handles it. The page and the script talk through REAPER's *ExtState*
 store, which the web interface can read and write: the script publishes a JSON snapshot of the mixer (only when
 something changes) and runs command batches the page sends, acknowledging each one so nothing is lost or doubled.
+While a fader or pan is being dragged, its values go through a separate fast key the script applies straight away
+without undo points; the value where you let go arrives as a normal command and makes exactly one undo point.
 
 ## Install
 
@@ -89,7 +93,7 @@ From top to bottom, like REAPER's mixer:
 | **FX slots** | Opens / closes that plugin's window in REAPER | Hold: bypass / un-bypass |
 | **Input** | Choose the record input (MIDI device + channel, mono or stereo audio, none) | |
 | **● ⦿ mode** | Arm · record monitoring (👁 grey = off, green = on — you hear the input, yellow = tape auto: only while recording/stopped) · record mode (IN / OVR / REP…) | Mode opens the record panel |
-| **Fader** | Drag up/down (moves from where it is, never jumps) | Double-tap: 0 dB |
+| **Fader** | Drag up/down (moves from where it is, never jumps); one undo step per drag | Double-tap: 0 dB |
 | **Meter** | Peak level, -60 to +6 dB | |
 | **Pan** | Drag sideways | Double-tap: centre |
 | **M / S** | Mute / solo | |
@@ -129,11 +133,13 @@ Shift+wheel (↕) over the same areas.
   pan, mute, remove, *add new send / receive…*), **audio hardware outputs** (add, level, pan, mute, remove) and
   the **MIDI hardware output**.
 - **Track options** (⋯ or hold the name): rename, invert phase, select in REAPER, insert a new track after,
-  delete the track.
+  delete the track (asks with a separate Cancel / Delete button).
 
 ![Input panel: MIDI devices and channels, audio inputs](docs/images/input.png)
 
-Adding, deleting, renaming tracks and changing sends are REAPER undo points (**Ctrl+Z** in REAPER).
+Every change from the tablet is one REAPER undo step — fader and pan drags, adding / deleting / renaming
+tracks, inputs, record modes, monitoring, FX bypass, sends — so the **Undo** button (or Ctrl+Z in REAPER) takes
+back exactly what you did.
 
 ## Troubleshooting
 
@@ -198,13 +204,15 @@ reaper-controller/
 | `in` | page | `{"s": seq, "c": [commands]}` |
 | `ack` | script | `seq` of the last batch run — the page then sends the next one (and resends if no ack) |
 
+| `live` | page | `{"<track id>": {"vol": v, "pan": p}}` while dragging — applied at once, no undo points |
 | `client` | page | Changes about once a second while a tablet is connected (the script idles without it) |
 | `perf` | script | Average milliseconds per snapshot |
 
 Commands: `set` (mon, recmode, input, mainsend, fxen, phase, nchan, autoarm, monitems, midiout), `name`, `select`,
 `fx_float`, `fx_chain`, `fx_enable`, `track_add`, `track_delete`, `send_add`, `recv_add`, `hw_add`,
-`route_set`, `route_remove`, `seek`. State also carries `project`: length, markers/regions, next undo/redo. Volume, pan, mute, solo, arm and transport go straight to REAPER's web API
-(`SET/TRACK/…`, action IDs).
+`route_set`, `route_remove`, `seek`; `set` also takes `vol` / `pan` (the end of a drag — one undo point).
+State also carries `project`: length, markers/regions, next undo/redo. Mute, solo, arm and transport go straight
+to REAPER's web API (`SET/TRACK/…`, action IDs).
 
 ## License
 
