@@ -186,7 +186,7 @@ export function openRouting(id) {
       const idx = Number(row.dataset.idx);
       const list = cat === 0 ? t.sends : cat === -1 ? t.recvs : t.hw;
       const r = list.find((x) => x.idx === idx);
-      const routeSet = (key, value) => lua({ cmd: "route_set", id: t.id, cat, idx, key, value }, `route:${t.id}:${cat}:${idx}:${key}`);
+      const routeSet = (key, value, final = false) => lua({ cmd: "route_set", id: t.id, cat, idx, key, value, final }, `route:${t.id}:${cat}:${idx}:${key}`);
       row.querySelector('[data-act="mute"]').onclick = () => routeSet("mute", !r.mute);
       row.querySelector('[data-act="remove"]').onclick = () => lua({ cmd: "route_remove", id: t.id, cat, idx });
       const vol = row.querySelector('[data-act="vol"]');
@@ -199,7 +199,8 @@ export function openRouting(id) {
           vol.querySelector("span").textContent = `${fmtDb(volToDb(r.vol))} dB`;
           routeSet("vol", r.vol);
         },
-        onReset: () => routeSet("vol", 1),
+        onEnd: () => routeSet("vol", r.vol, true),
+        onReset: () => routeSet("vol", 1, true),
       });
       const pan = row.querySelector('[data-act="pan"]');
       dragValue(pan, {
@@ -214,7 +215,8 @@ export function openRouting(id) {
           pan.querySelector("span").textContent = fmtPan(r.pan);
           routeSet("pan", r.pan);
         },
-        onReset: () => routeSet("pan", 0),
+        onEnd: () => routeSet("pan", r.pan, true),
+        onReset: () => routeSet("pan", 0, true),
       });
     });
   });
@@ -246,11 +248,24 @@ export function openMenu(id) {
     body.querySelector('[data-k="phase"]').onchange = (e) => set(t, "phase", e.target.checked);
     body.querySelector("#mSelect").onclick = () => lua({ cmd: "select", id: t.id });
     body.querySelector("#mInsert").onclick = () => { lua({ cmd: "track_add", after: t.id }); toast("Track added"); close(); };
-    body.querySelector("#mDelete").onclick = () => {
-      if (!confirm(`Delete track ${t.n}${t.name ? ` "${t.name}"` : ""}? (Ctrl+Z in REAPER undoes it)`)) return;
+    // Two-step delete inside the panel (browser confirm() boxes are blocked in some iPad browsers).
+    const deleteBtn = body.querySelector("#mDelete");
+    let armed = 0;
+    deleteBtn.onclick = () => {
+      if (!armed) {
+        armed = setTimeout(() => {
+          armed = 0;
+          deleteBtn.classList.remove("confirm");
+          deleteBtn.lastChild.textContent = " Delete track";
+        }, 3000);
+        deleteBtn.classList.add("confirm");
+        deleteBtn.lastChild.textContent = " Tap again to delete";
+        return;
+      }
+      clearTimeout(armed);
       lua({ cmd: "track_delete", id: t.id });
       close();
-      toast("Track deleted");
+      toast("Track deleted — Undo brings it back");
     };
   });
 }

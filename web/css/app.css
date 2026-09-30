@@ -309,3 +309,4 @@ body.recording #tlPlayed { background: color-mix(in srgb, var(--rec) 18%, transp
 
 /* Monitoring button: off is clearly off */
 .s-btn.mon[data-mon="0"] { opacity: 0.45; }
+.btn.danger.confirm { background: var(--bad); color: #fff; border-color: transparent; }

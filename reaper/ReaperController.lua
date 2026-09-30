@@ -294,10 +294,24 @@ local function undoable(desc, fn)
   reaper.Undo_EndBlock("Reaper Controller: " .. desc, -1)
 end
 
+-- Settings changed through the API don't create undo points by themselves; this records one
+-- (the state *after* the change), so REAPER's Undo goes back to how it was before.
+local UNDO_NAMES = {
+  mon = "record monitoring", recmode = "record mode", input = "record input", mainsend = "master send",
+  fxen = "FX bypass", phase = "phase", nchan = "track channels", autoarm = "auto record-arm",
+  monitems = "monitor media when recording", midiout = "MIDI hardware output",
+}
+local function undoPoint(what)
+  reaper.Undo_OnStateChangeEx2(0, "Reaper Controller: " .. what, 1, -1) -- 1 = track configurations
+end
+
 local HANDLERS = {
   set = function(c, tr)
     local key, value = TRACK_KEYS[c.key], num(c.value)
-    if tr and key and value then reaper.SetMediaTrackInfo_Value(tr, key, value) end
+    if tr and key and value then
+      reaper.SetMediaTrackInfo_Value(tr, key, value)
+      undoPoint(UNDO_NAMES[c.key] or c.key)
+    end
   end,
   name = function(c, tr)
     if tr and c.id ~= "master" then
@@ -313,7 +327,10 @@ local HANDLERS = {
     if reaper.TrackFX_GetChainVisible(tr) ~= -1 then reaper.TrackFX_Show(tr, 0, 0) else reaper.TrackFX_Show(tr, 0, 1) end
   end,
   fx_enable = function(c, tr)
-    if tr and c.fx then reaper.TrackFX_SetEnabled(tr, c.fx, c.value and true or false) end
+    if tr and c.fx then
+      reaper.TrackFX_SetEnabled(tr, c.fx, c.value and true or false)
+      undoPoint(c.value and "FX on" or "FX bypass")
+    end
   end,
   track_add = function(c)
     undoable("add track", function()
@@ -348,7 +365,11 @@ local HANDLERS = {
   end,
   route_set = function(c, tr)
     local key, value = ROUTE_KEYS[c.key], num(c.value)
-    if tr and key and value and c.cat and c.idx then reaper.SetTrackSendInfo_Value(tr, c.cat, c.idx, key, value) end
+    if tr and key and value and c.cat and c.idx then
+      reaper.SetTrackSendInfo_Value(tr, c.cat, c.idx, key, value)
+      -- Slider drags send many values; only the last one ("final") makes an undo point.
+      if c.final or key ~= "D_VOL" and key ~= "D_PAN" then undoPoint("send " .. c.key) end
+    end
   end,
   seek = function(c)
     local pos = tonumber(c.pos)

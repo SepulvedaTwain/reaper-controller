@@ -246,7 +246,7 @@ class Demo:
         key = {"VOL": "vol", "PAN": "pan", "MUTE": "mute", "SOLO": "solo", "RECARM": "arm", "SEL": "sel"}.get(what)
         if not key:
             return
-        v = float(value)
+        v = float(value.rstrip("eEg"))  # REAPER suffixes: e = end of touch, g = ignore ganging
         if key in ("vol", "pan"):
             t[key] = max(0.0, v) if key == "vol" else max(-1.0, min(1.0, v))
         else:

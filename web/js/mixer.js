@@ -89,10 +89,12 @@ class Strip {
   bind() {
     const id = () => this.id;
     // Fader: relative drag, double-tap = 0 dB.
+    // Each gesture ends with an "end touch" value, so REAPER makes one undo point per drag.
     dragValue(this.q(".s-fader"), {
       get: () => dbToPos(volToDb(this.vol ?? 1)),
       onMove: (p) => this.setVol(dbToVol(posToDb(clamp(p, 0, 1)))),
-      onReset: () => this.setVol(1),
+      onEnd: () => this.setVol(this.vol ?? 1, true),
+      onReset: () => this.setVol(1, true),
     });
     // Pan: relative drag sideways, double-tap = centre.
     dragValue(this.q(".s-pan-track"), {
@@ -100,7 +102,8 @@ class Strip {
       scale: 2,
       get: () => this.pan ?? 0,
       onMove: (p) => this.setPan(clamp(p, -1, 1)),
-      onReset: () => this.setPan(0),
+      onEnd: () => this.setPan(this.pan ?? 0, true),
+      onReset: () => this.setPan(0, true),
     });
     onPress(this.q(".mute"), () => this.toggleNative("MUTE", "mute", FLAG.mute));
     onPress(this.q(".solo"), () => this.toggleNative("SOLO", "solo", FLAG.solo | FLAG.soloInPlace));
@@ -125,17 +128,20 @@ class Strip {
     }
   }
 
-  setVol(v) {
+  // REAPER treats web volume/pan changes as a "touch": the undo point is made when the touch
+  // ends — a value ending in "e" — or 8 s later. Without the end marker, pressing Undo during
+  // those 8 s undoes the previous step instead of the fader move.
+  setVol(v, end = false) {
     hold(this.id, "vol", v);
     this.vol = v;
-    native(`vol:${this.id}`, `SET/TRACK/${this.index}/VOL/${v.toFixed(6)}`);
+    native(`vol:${this.id}`, `SET/TRACK/${this.index}/VOL/${v.toFixed(6)}${end ? "e" : ""}`);
     this.renderNative();
   }
 
-  setPan(p) {
+  setPan(p, end = false) {
     hold(this.id, "pan", p);
     this.pan = p;
-    native(`pan:${this.id}`, `SET/TRACK/${this.index}/PAN/${p.toFixed(4)}`);
+    native(`pan:${this.id}`, `SET/TRACK/${this.index}/PAN/${p.toFixed(4)}${end ? "e" : ""}`);
     this.renderNative();
   }
 

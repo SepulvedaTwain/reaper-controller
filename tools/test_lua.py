@@ -62,6 +62,7 @@ class FakeReaper:
     def TrackList_AdjustWindows(self, x): pass
     def Undo_BeginBlock(self): pass
     def Undo_EndBlock(self, desc, flags): self.undo.append(desc)
+    def Undo_OnStateChangeEx2(self, p, desc, which, parm): self.undo.append(desc)
     # --- fx
     def TrackFX_GetCount(self, t): return len(t.fx)
     def TrackFX_GetFXName(self, t, i, buf): return True, t.fx[i]["name"]
@@ -228,6 +229,13 @@ def main():
     active_snapshots = beats() - b1
     check(f"idles without a tablet (2 s: {idle_snapshots} idle vs {active_snapshots} active snapshots)",
           idle_snapshots <= 3 and active_snapshots >= 15)
+    n0 = len(fake.undo)
+    send(111, {"cmd": "set", "id": "{B}", "key": "recmode", "value": 0})
+    check("a setting change makes exactly one undo point", fake.undo[n0:] == ["Reaper Controller: record mode"])
+    n0 = len(fake.undo)
+    send(112, *[{"cmd": "route_set", "id": "{B}", "cat": 0, "idx": 0, "key": "vol", "value": v} for v in (0.2, 0.3)])
+    send(113, {"cmd": "route_set", "id": "{B}", "cat": 0, "idx": 0, "key": "vol", "value": 0.4, "final": True})
+    check("send-level drag: one undo point, only on the final value", fake.undo[n0:] == ["Reaper Controller: send vol"])
     check("snapshot cost published", float(fake.ext.get(("ReaperController", "perf"), "-1")) >= 0)
     check("no script errors", not fake.console)
     for m in fake.console:

@@ -78,7 +78,9 @@ function pinchable(el, resize) {
 
 export function initLayout() {
   pinchable($("topbar"), (sx, sy, base, dist) => { L.top = Math.round(clamp(base.top * dist, 0.8, 1.8) * 100) / 100; });
-  pinchable($("timeline"), (sx, sy, base) => { L.tl = Math.round(clamp(base.tl * sy, 24, 120)); });
+  // The timeline is too short for a vertical-only pinch (fingers can't be far enough apart inside it),
+  // so any pinch on it works: spread = taller, pinch in = shorter.
+  pinchable($("timeline"), (sx, sy, base, dist) => { L.tl = Math.round(clamp(base.tl * dist, 24, 140)); });
   pinchable($("mixer"), (sx, sy, base) => {
     L.strip = Math.round(clamp(base.strip * sx, 60, 200));
     L.fx = Math.round(clamp(base.fx * sy, 0, 14));
